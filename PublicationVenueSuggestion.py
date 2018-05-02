@@ -131,17 +131,33 @@ class PublicationVenueSuggestion:
                     title = regex.sub('', title)
                     feature = ' '.join([title, cvenue])
                     X.append(feature)
+                    y.append(pvenue)
                     ids.append(id)
             return ids, X, y
 
         vectorizer = CountVectorizer(lowercase=True, min_df=5)
+
+        print('Fitting label encoder by data/labels.txt...')
+        venues_file = 'data/labels.txt'
+        with codecs.open(venues_file, 'r', 'utf-8') as f:
+            venues = [line.strip() for line in f]
+        self.label_encoder.fit(venues)
 
         print('Fitting vectorizer by cleaned_training.txt (HIN features)...')
         train_file = 'data/cleaned_training.txt'
         _, train_X, train_y = load_data(train_file)
         vectorizer.fit_transform(train_X)
 
-
+        print('Transforming subset data and storing...')
+        with codecs.open('output/text_hin_features.txt', 'w', 'utf-8') as outf, codecs.open('data/cleaned_data.txt', 'r',
+                                                                                        'utf-8') as inf:
+            for line in inf:
+                id, title, pvenue, _, cvenue = line.strip().split('\t')
+                title = regex.sub('', title)
+                feature = ' '.join([title, cvenue])
+                feature_vector = vectorizer.transform([feature]).toarray()[0]
+                label_enc = self.label_encoder.transform([pvenue])[0]
+                outf.write(','.join([str(i) for i in feature_vector]) + '\t' + str(label_enc) + '\n')
 
         print('Transforming training data...')
         train_X = vectorizer.transform(train_X)
@@ -164,7 +180,7 @@ class PublicationVenueSuggestion:
 
         print('Testing...')
         test_y = clf.predict(test_X)
-        pred_res = 'output/text_feature_predictions.txt'
+        pred_res = 'output/text_hin_feature_predictions.txt'
         with open(pred_res, 'w') as f:
             for i, pred in enumerate(test_y):
                 id = ids[i]
@@ -186,8 +202,8 @@ class PublicationVenueSuggestion:
 def main():
     PVS = PublicationVenueSuggestion()
     # PVS.data_cleaning()
-    PVS.simple_classifier()
-    # PVS.advanced_classifier()
+    # PVS.simple_classifier()
+    PVS.hin_classifier()
 
 
 if __name__ == "__main__":
