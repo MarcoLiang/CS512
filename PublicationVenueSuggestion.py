@@ -11,6 +11,7 @@ from sklearn.metrics import f1_score
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.feature_extraction.text import CountVectorizer
+from gensim.models import KeyedVectors
 import warnings
 warnings.filterwarnings("ignore")
 regex = re.compile('[^a-z\ -]')
@@ -113,7 +114,7 @@ class PublicationVenueSuggestion:
         micro = f1_score(valid_y, pred_y, average='micro')
         macro = f1_score(valid_y, pred_y, average='macro')
         output_str = 'f1 score micro: {0}, f1 score macro: {1}'.format(micro, macro)
-        output_file.write(output_str)
+        output_file.write(output_str + '\n')
 
         print('Storing precision and recall per venue in output/result_simple_clf.txt...')
         for label in self.label_encoder.classes_:
@@ -201,9 +202,8 @@ class PublicationVenueSuggestion:
         macro = f1_score(valid_y, pred_y, average='macro')
         # acc = accuracy_score(valid_y, pred_y)
         output_str = 'f1 score micro: {0}, f1 score macro: {1}'.format(micro, macro)
-        output_file.write(output_str)
+        output_file.write(output_str + '\n')
         print('Storing precision and recall per venue in output/result_hin_clf.txt...')
-        output_file.write(output_str)
         for label in self.label_encoder.classes_:
             venue = self.label_encoder.transform([label])
             pres, recs, _, _ = precision_recall_fscore_support(valid_y, pred_y, average=None, labels=venue)
@@ -217,16 +217,200 @@ class PublicationVenueSuggestion:
         print('================================================')
 
     def w2c_classifier(self):
-        pass
+
+        word_vectors = KeyedVectors.load_word2vec_format('data/cs512_embedding_128.bin', binary=True)
+
+        def mean_emb(title, dim=128):
+            emb = np.zeros(dim)
+            wc = 0
+            words = title.split(' ')
+            for word in words:
+                if word in word_vectors.vocab:
+                    emb += word_vectors.vectors[word_vectors.vocab[word].index]
+                    wc += 1
+            if wc > 0:
+                emb /= wc
+            return emb
+
+        def load_data(file):
+            X = []
+            y = []
+            ids = []
+            with codecs.open(file, 'r', 'utf-8') as f:
+                for line in f:
+                    id, title, pvenue, _, cvenue = line.strip().split('\t')
+                    title = regex.sub('', title)
+                    X.append(mean_emb(title))
+                    y.append(pvenue)
+                    ids.append(id)
+
+            return np.array(ids), np.array(X), np.array(y)
+
+        print('Fitting label encoder by data/labels.txt...')
+        venues_file = 'data/labels.txt'
+        with codecs.open(venues_file, 'r', 'utf-8') as f:
+            venues = [line.strip() for line in f]
+        self.label_encoder.fit(venues)
+
+        print('Embedding subset data and storing...')
+        with codecs.open('output/extra_credit_features.txt', 'w', 'utf-8') as outf, codecs.open('data/cleaned_data.txt',
+                                                                                            'r',
+                                                                                            'utf-8') as inf:
+            for line in inf:
+                id, title, pvenue, _, cvenue = line.strip().split('\t')
+                title = regex.sub('', title)
+                feature_vector = mean_emb(title)
+                label_enc = self.label_encoder.transform([pvenue])[0]
+                outf.write(','.join([str(i) for i in feature_vector]) + '\t' + str(label_enc) + '\n')
+
+        print('Embedding training data...')
+        train_file = 'data/cleaned_training.txt'
+        _, train_X, train_y = load_data(train_file)
+        train_y = self.label_encoder.transform(train_y)
+
+        print('Embedding validation data...')
+        valid_file = 'data/cleaned_validation.txt'
+        _, valid_X, valid_y = load_data(valid_file)
+        valid_y = self.label_encoder.transform(valid_y)
+
+        print('Embedding test data...')
+        test_file = 'data/cleaned_test_set.txt'
+        ids, test_X, _ = load_data(test_file)
+
+        print('Fitting Linear Model...')
+        clf = linear_model.SGDClassifier(tol=1e-3, max_iter=1000)
+        clf.fit(train_X, train_y)
+
+        print('Testing...')
+        test_y = clf.predict(test_X)
+        pred_res = 'output/extracredit_predictions.txt'
+        with open(pred_res, 'w') as f:
+            for i, pred in enumerate(test_y):
+                id = ids[i]
+                venue = self.label_encoder.inverse_transform(pred)
+                f.write(id + '\t' + venue + '\n')
+
+        output_file = open('output/result_w2c_clf.txt', 'w')
+        pred_y = clf.predict(valid_X)
+        micro = f1_score(valid_y, pred_y, average='micro')
+        macro = f1_score(valid_y, pred_y, average='macro')
+        output_str = 'f1 score micro: {0}, f1 score macro: {1}'.format(micro, macro)
+        print('Storing precision and recall per venue in output/result_w2c_clf.txt...')
+        output_file.write(output_str + '\n')
+        for label in self.label_encoder.classes_:
+            venue = self.label_encoder.transform([label])
+            pres, recs, _, _ = precision_recall_fscore_support(valid_y, pred_y, average=None, labels=venue)
+            pre = pres[0]
+            rec = recs[0]
+            output_file.write('{0}\t{1}\t{2}\n'.format(label, pre, rec))
+
+        print('=========== Simple Classifier Result ===========')
+        print(output_str)
+        print('================================================')
+
+    def w2c_hin_classifier(self):
+
+        word_vectors = KeyedVectors.load_word2vec_format('data/cs512_embedding_hin_128.bin', binary=True)
 
 
+        def mean_emb(title, venue, dim=128):
+            emb = np.zeros(dim)
+            wc = 0
+            words = title.split(' ')
+            words += venue.split(' ')
+            for word in words:
+                if word in word_vectors.vocab:
+                    emb += word_vectors.vectors[word_vectors.vocab[word].index]
+                    wc += 1
+            if wc > 0:
+                emb /= wc
+            return emb
+
+        def load_data(file):
+            X = []
+            y = []
+            ids = []
+            with codecs.open(file, 'r', 'utf-8') as f:
+                for line in f:
+                    id, title, pvenue, _, cvenue = line.strip().split('\t')
+                    title = regex.sub('', title)
+                    cvenue = regex.sub('', cvenue)
+                    X.append(mean_emb(title, cvenue))
+                    y.append(pvenue)
+                    ids.append(id)
+
+            return np.array(ids), np.array(X), np.array(y)
+
+        print('Fitting label encoder by data/labels.txt...')
+        venues_file = 'data/labels.txt'
+        with codecs.open(venues_file, 'r', 'utf-8') as f:
+            venues = [line.strip() for line in f]
+        self.label_encoder.fit(venues)
+
+        print('Embedding subset data and storing...')
+        with codecs.open('output/extra_credit_hin_features.txt', 'w', 'utf-8') as outf, codecs.open('data/cleaned_data.txt',
+                                                                                            'r',
+                                                                                            'utf-8') as inf:
+            for line in inf:
+                id, title, pvenue, _, cvenue = line.strip().split('\t')
+                title = regex.sub('', title)
+                feature_vector = mean_emb(title, cvenue)
+                label_enc = self.label_encoder.transform([pvenue])[0]
+                outf.write(','.join([str(i) for i in feature_vector]) + '\t' + str(label_enc) + '\n')
+
+        print('Embedding training data...')
+        train_file = 'data/cleaned_training.txt'
+        _, train_X, train_y = load_data(train_file)
+        train_y = self.label_encoder.transform(train_y)
+
+        print('Embedding validation data...')
+        valid_file = 'data/cleaned_validation.txt'
+        _, valid_X, valid_y = load_data(valid_file)
+        valid_y = self.label_encoder.transform(valid_y)
+
+        print('Embedding test data...')
+        test_file = 'data/cleaned_test_set.txt'
+        ids, test_X, _ = load_data(test_file)
+
+        print('Fitting Linear Model...')
+        clf = linear_model.SGDClassifier(tol=1e-3, max_iter=1000)
+        clf.fit(train_X, train_y)
+
+        print('Testing...')
+        test_y = clf.predict(test_X)
+        pred_res = 'output/extracredit_hin_predictions.txt'
+        with open(pred_res, 'w') as f:
+            for i, pred in enumerate(test_y):
+                id = ids[i]
+                venue = self.label_encoder.inverse_transform(pred)
+                f.write(id + '\t' + venue + '\n')
+
+        output_file = open('output/result_w2c_hin_clf.txt', 'w')
+        pred_y = clf.predict(valid_X)
+        micro = f1_score(valid_y, pred_y, average='micro')
+        macro = f1_score(valid_y, pred_y, average='macro')
+        output_str = 'f1 score micro: {0}, f1 score macro: {1}'.format(micro, macro)
+        print('Storing precision and recall per venue in output/result_w2c_clf.txt...')
+        output_file.write(output_str + '\n')
+        for label in self.label_encoder.classes_:
+            venue = self.label_encoder.transform([label])
+            pres, recs, _, _ = precision_recall_fscore_support(valid_y, pred_y, average=None, labels=venue)
+            pre = pres[0]
+            rec = recs[0]
+            output_file.write('{0}\t{1}\t{2}\n'.format(label, pre, rec))
+
+        print('=========== Simple Classifier Result ===========')
+        print(output_str)
+        print('================================================')
 
 
 def main():
     PVS = PublicationVenueSuggestion()
     # PVS.data_cleaning()
-    PVS.simple_classifier()
-    PVS.hin_classifier()
+    # PVS.simple_classifier()
+    # PVS.hin_classifier()
+    PVS.w2c_classifier()
+    PVS.w2c_hin_classifier()
 
 
 if __name__ == "__main__":
