@@ -70,6 +70,16 @@ class PublicationVenueSuggestion:
         _, train_X, train_y = load_data(train_file)
         vectorizer.fit_transform(train_X)
 
+        print('Transforming subset data and storing...')
+        with codecs.open('output/text_features.txt', 'w', 'utf-8') as outf, codecs.open('data/cleaned_data.txt', 'r', 'utf-8') as inf:
+            for line in inf:
+                toks = line.strip().split('\t')
+                title = toks[1]
+                label = toks[2]
+                feature_vector = vectorizer.transform([title]).toarray()[0]
+                label_enc = self.label_encoder.transform([label])[0]
+                outf.write(','.join([str(i) for i in feature_vector]) + '\t' + str(label_enc) + '\n')
+
         print('Transforming training data...')
         train_X = vectorizer.transform(train_X)
         train_y = self.label_encoder.transform(train_y)
@@ -124,38 +134,58 @@ class PublicationVenueSuggestion:
                     ids.append(id)
             return ids, X, y
 
+        vectorizer = CountVectorizer(lowercase=True, min_df=5)
+
+        print('Fitting vectorizer by cleaned_training.txt (HIN features)...')
+        train_file = 'data/cleaned_training.txt'
+        _, train_X, train_y = load_data(train_file)
+        vectorizer.fit_transform(train_X)
+
+
 
         print('Transforming training data...')
-        train_file = 'training.txt'
-        _, train_X, train_y = load_data(train_file)
         train_X = vectorizer.transform(train_X)
-        train_y = label_encoder.transform(train_y)
+        train_y = self.label_encoder.transform(train_y)
+
         print('Transforming validation data...')
-        valid_file = 'validation.txt'
+        valid_file = 'data/cleaned_validation.txt'
         _, valid_X, valid_y = load_data(valid_file)
         valid_X = vectorizer.transform(valid_X)
-        valid_y = label_encoder.transform(valid_y)
+        valid_y = self.label_encoder.transform(valid_y)
+
         print('Transforming test data...')
-        test_file = 'test_set.txt'
+        test_file = 'data/cleaned_test_set.txt'
         ids, test_X, _ = load_data(test_file)
         test_X = vectorizer.transform(test_X)
 
+        print('Fitting Linear Model...')
         clf = linear_model.SGDClassifier(tol=1e-3, max_iter=1000)
         clf.fit(train_X, train_y)
 
-        output_file = 'results_of_advanced_clf.txt'
-        output = open(output_file, 'w')
-        preds = clf.predict(valid_X)
-        micro = f1_score(valid_y, preds, average='micro')
-        macro = f1_score(valid_y, preds, average='macro')
-        acc = accuracy_score(valid_y, preds)
-        print('f1 score micro', micro, 'f1 score macro', macro)
+        print('Testing...')
+        test_y = clf.predict(test_X)
+        pred_res = 'output/text_feature_predictions.txt'
+        with open(pred_res, 'w') as f:
+            for i, pred in enumerate(test_y):
+                id = ids[i]
+                venue = self.label_encoder.inverse_transform(pred)
+                f.write(id + '\t' + venue + '\n')
+
+        output_file = open('output/result_hin_clf.txt', 'w')
+        pred_y = clf.predict(valid_X)
+        micro = f1_score(valid_y, pred_y, average='micro')
+        macro = f1_score(valid_y, pred_y, average='macro')
+        # acc = accuracy_score(valid_y, pred_y)
+        output_str = 'f1 score micro: {0}, f1 score macro: {1}'.format(micro, macro)
+        print('=========== Simple Classifier Result ===========')
+        print(output_str)
+        print('================================================')
+        output_file.write(output_str)
 
 
 def main():
     PVS = PublicationVenueSuggestion()
     # PVS.data_cleaning()
-    PVS.creat_text_feature_vector()
     PVS.simple_classifier()
     # PVS.advanced_classifier()
 
