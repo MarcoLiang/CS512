@@ -19,7 +19,6 @@ regex = re.compile('[^a-z\ -]')
 class PublicationVenueSuggestion:
 
     def __init__(self):
-        self.vectorizer = CountVectorizer(lowercase=True, min_df=5)
         self.label_encoder = preprocessing.LabelEncoder()
 
     def data_cleaning(self):
@@ -41,31 +40,6 @@ class PublicationVenueSuggestion:
                     outf.write('\t'.join(toks) + '\n')
 
 
-    def creat_text_feature_vector(self):
-        labels_file = 'labels.txt'
-        with codecs.open('data/' + labels_file, 'r', 'utf-8') as f:
-            labels = [line.strip() for line in f]
-
-        print('Fitting vectorizer by cleaned_training.txt...')
-        with codecs.open('data/cleaned_training.txt', 'r', 'utf-8') as f:
-            corpus = [line.strip().split('\t')[1] for line in f]
-        self.vectorizer.fit_transform(corpus)
-
-
-        input_files = ['cleaned_data.txt']
-        for input_file in input_files:
-            print('Vectorizing {}...'.format(input_file))
-            output_file = 'text_features.txt'
-
-            with codecs.open('output/'+output_file, 'w', 'utf-8') as outf, codecs.open('data/cleaned_data.txt', 'r', 'utf-8') as inf:
-                for line in inf:
-                    toks = line.strip().split('\t')
-                    title = toks[1]
-                    feature_vector = self.vectorizer.transform([title]).toarray()[0]
-                    label = labels.index(toks[2])
-                    outf.write(','.join([str(i) for i in feature_vector]) + '\t' + str(label) + '\n')
-            print('Finished, output file store in data/{}'.format(output_file))
-
     def simple_classifier(self):
         def load_data(file):
             X = []
@@ -81,40 +55,35 @@ class PublicationVenueSuggestion:
                     ids.append(toks[0])
             return ids, X, y
 
-        labels_file = 'labels.txt'
-        with codecs.open('data/' + labels_file, 'r', 'utf-8') as f:
-            labels = [line.strip() for line in f]
-
-        print('Fitting vectorizer by cleaned_training.txt...')
-        with codecs.open('data/cleaned_training.txt', 'r', 'utf-8') as f:
-            corpus = [line.strip().split('\t')[1] for line in f]
-        self.vectorizer.fit_transform(corpus)
+        vectorizer = CountVectorizer(lowercase=True, min_df=5)
 
 
 
-
-        print('Loading labels and fitting label encoder...')
+        print('Fitting label encoder by data/labels.txt...')
         venues_file = 'data/labels.txt'
         with codecs.open(venues_file, 'r', 'utf-8') as f:
             venues = [line.strip() for line in f]
         self.label_encoder.fit(venues)
 
-        print('Transforming training data...')
+        print('Fitting vectorizer by cleaned_training.txt (sample features)...')
         train_file = 'data/cleaned_training.txt'
         _, train_X, train_y = load_data(train_file)
-        train_X = self.vectorizer.transform(train_X)
+        vectorizer.fit_transform(train_X)
+
+        print('Transforming training data...')
+        train_X = vectorizer.transform(train_X)
         train_y = self.label_encoder.transform(train_y)
 
         print('Transforming validation data...')
         valid_file = 'data/cleaned_validation.txt'
         _, valid_X, valid_y = load_data(valid_file)
-        valid_X = self.vectorizer.transform(valid_X)
+        valid_X = vectorizer.transform(valid_X)
         valid_y = self.label_encoder.transform(valid_y)
 
         print('Transforming test data...')
         test_file = 'data/cleaned_test_set.txt'
         ids, test_X, _ = load_data(test_file)
-        test_X = self.vectorizer.transform(test_X)
+        test_X = vectorizer.transform(test_X)
 
         print('Fitting Linear Model...')
         clf = linear_model.SGDClassifier(tol=1e-3, max_iter=1000)
