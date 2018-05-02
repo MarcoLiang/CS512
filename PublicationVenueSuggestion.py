@@ -112,12 +112,20 @@ class PublicationVenueSuggestion:
         pred_y = clf.predict(valid_X)
         micro = f1_score(valid_y, pred_y, average='micro')
         macro = f1_score(valid_y, pred_y, average='macro')
-        # acc = accuracy_score(valid_y, pred_y)
         output_str = 'f1 score micro: {0}, f1 score macro: {1}'.format(micro, macro)
+        output_file.write(output_str)
+
+        print('Storing precision and recall per venue in output/result_simple_clf.txt...')
+        for label in self.label_encoder.classes_:
+            venue = self.label_encoder.transform([label])
+            pres, recs, _, _ = precision_recall_fscore_support(valid_y, pred_y, average=None, labels=venue)
+            pre = pres[0]
+            rec = recs[0]
+            output_file.write('{0}\t{1}\t{2}\n'.format(label, pre, rec))
+
         print('=========== Simple Classifier Result ===========')
         print(output_str)
         print('================================================')
-        output_file.write(output_str)
 
 
     def hin_classifier(self):
@@ -193,16 +201,31 @@ class PublicationVenueSuggestion:
         macro = f1_score(valid_y, pred_y, average='macro')
         # acc = accuracy_score(valid_y, pred_y)
         output_str = 'f1 score micro: {0}, f1 score macro: {1}'.format(micro, macro)
+        output_file.write(output_str)
+        print('Storing precision and recall per venue in output/result_hin_clf.txt...')
+        output_file.write(output_str)
+        for label in self.label_encoder.classes_:
+            venue = self.label_encoder.transform([label])
+            pres, recs, _, _ = precision_recall_fscore_support(valid_y, pred_y, average=None, labels=venue)
+            pre = pres[0]
+            rec = recs[0]
+            output_file.write('{0}\t{1}\t{2}\n'.format(label, pre, rec))
+
+
         print('=========== Simple Classifier Result ===========')
         print(output_str)
         print('================================================')
-        output_file.write(output_str)
+
+    def w2c_classifier(self):
+        pass
+
+
 
 
 def main():
     PVS = PublicationVenueSuggestion()
     # PVS.data_cleaning()
-    # PVS.simple_classifier()
+    PVS.simple_classifier()
     PVS.hin_classifier()
 
 
