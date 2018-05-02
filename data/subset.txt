@@ -1,0 +1,10 @@
+573696fb6e3b12023e5f63c7	Fuzzy logic helps to integrate music theory and practice.	fuzz-ieee	573696fb6e3b12023e5f650c	fuzz-ieee
+573698496e3b12023e71162f	Efficient provenance storage for relational queries.	cikm	573698486e3b12023e711182	cikm
+573697016e3b12023e5fb15f	A Scalable Approach to Building a Parallel Corpus from the Web.	interspeech	573696fd6e3b12023e5f86bb	interspeech
+573696ff6e3b12023e5fa0e3	A new system for text-to-speech conversion, and its application to Swedish.	icslp	573696fc6e3b12023e5f72f5	icslp
+5736985a6e3b12023e720316	GOOD: AGraph-Oriented Object Database System.	sigmod_conference	5736965e6e3b12023e56ac69 5736965e6e3b12023e56b112 5736972d6e3b12023e61e38d 573698596e3b12023e71fccf	ieee_trans._knowl._data_eng. ieee_trans._knowl._data_eng. vldb
+58d83028d649053542fe52f7	Compressive reconstruction for 3D incoherent holographic microscopy.	icip	58d83028d649053542fe5033	icip
+573697b66e3b12023e69815e	Time-efficient computations for topological functions in 3D images.	icip	573697b36e3b12023e695c00	icip
+573696ea6e3b12023e5e8674	Computer graphics in undergraduate computational science education.	sigcse	573696ea6e3b12023e5e8f25	sigcse
+573697776e3b12023e65e823	A weighted approach for integrated active noise control and noise reduction in hearing aids.	eusipco	573697786e3b12023e65f474	eusipco
+573697426e3b12023e62ff19	Decision-Feedback Multiuser Detection in Multicell Multicarrier DS-CDMA Systems with/without BS Cooperation.	vtc_spring	573697416e3b12023e62f933	vtc_spring
